@@ -82,7 +82,7 @@ export function TourDialog({ title, startRoom, onClose }: Props) {
         try {
           reply(msg.id, await reimagineRoom({ render: msg.render, photo: msg.photo ?? null, roomName: msg.roomName ?? 'room', notes: msg.notes, photoIsThisRoom: msg.photoIsThisRoom !== false, furniture: Array.isArray(msg.furniture) ? msg.furniture.slice(0, 40) : undefined }))
         } catch (err) {
-          reply(msg.id, null, { message: err instanceof Error ? err.message : 'Fal couldn’t reimagine the room just now. Try again.' })
+          reply(msg.id, null, { message: err instanceof Error ? err.message : 'Google couldn’t reimagine the room just now. Try again.' })
         }
       }
       if (msg.type === 'veduta:furnish' && msg.id != null && msg.roomId && projectId) {

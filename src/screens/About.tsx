@@ -37,7 +37,7 @@ const CREDITS = [
   { name: 'MASt3R', by: 'Naver Labs Europe', note: 'room reconstruction · CC BY-NC-SA 4.0', href: 'https://github.com/naver/mast3r' },
   { name: 'Gemini', by: 'Google', note: 'reading floor plans, matching photos and furnishing rooms', href: 'https://ai.google.dev' },
   { name: 'HunyuanWorld via fal', by: 'Tencent / fal.ai', note: '360° room impressions', href: 'https://fal.ai' },
-  { name: 'Nano Banana via fal', by: 'Google / fal.ai', note: 'Reimagine: photo-real redesigns', href: 'https://fal.ai' },
+  { name: 'Gemini image generation (Nano Banana)', by: 'Google', note: 'Reimagine: photo-real redesigns', href: 'https://ai.google.dev' },
   { name: 'MoGe-2 via fal', by: 'Microsoft / fal.ai', note: '3D photos (Depth Anything as backup)', href: 'https://github.com/microsoft/MoGe' },
   { name: 'Google Maps Platform', by: 'Google', note: 'Street View and the view from the windows', href: 'https://developers.google.com/maps' },
   { name: 'three.js', by: 'three.js authors', note: '3D viewer and walk-through', href: 'https://threejs.org' },

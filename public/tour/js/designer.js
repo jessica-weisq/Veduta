@@ -1,9 +1,9 @@
-/* The interior designer in the 3D walk, and "Reimagine with Fal".
+/* The interior designer in the 3D walk, and "Reimagine".
 
    Redesign opens the design tools (Arrange furniture, Paint and wallpaper), which are tucked away otherwise.
-   Reimagine with Fal sits under it, always there (it glows once something has been changed): it renders the
+   Reimagine sits under it, always there (it glows once something has been changed): it renders the
    room as it now looks in the walk, from where you're standing, and sends that with the room's original photo to the backend
-   (POST /reimagine), which asks fal for a photographic version of the redesign in the real room (its
+   (POST /reimagine), which asks Google's Gemini image model for a photographic version of the redesign in the real room (its
    walls, windows, view and light come from the photo). Inside Veduta the request goes through the website;
    on its own the tour needs TOUR_CONFIG.API_URL (config.js) to point at the backend. */
 (function () {
@@ -36,10 +36,10 @@
   const plainError = (e) => {
     let m = (e && e.message) || String(e || "");
     try { const j = JSON.parse(m); if (j && j.detail) m = typeof j.detail === "string" ? j.detail : JSON.stringify(j.detail); } catch (_) { /* not JSON */ }
-    return m || "Fal couldn’t reimagine the room just now. Try again.";
+    return m || "Google couldn’t reimagine the room just now. Try again.";
   };
 
-  // ---- what's in the picture, in words, for Fal ----
+  // ---- what's in the picture, in words, for the image model ----
   const LABEL = {
     sofa: "sofa", armchair: "armchair", ottoman: "upholstered ottoman", coffeeRound: "round coffee table", coffee: "coffee table",
     sideboard: "sideboard", tv: "TV wall unit with a television", shelving: "shelving unit", bookcase: "bookcase", table: "dining table",
@@ -136,13 +136,13 @@
       const redesign = el("button", "w3-deco w3-redesign", "Redesign"); redesign.type = "button";
       redesign.setAttribute("aria-pressed", "false");
       redesign.title = "Interior designer: move and add furniture, repaint the walls";
-      const reimagineBtn = el("button", "w3-deco w3-reimagine", "Reimagine with Fal"); reimagineBtn.type = "button";
+      const reimagineBtn = el("button", "w3-deco w3-reimagine", "Reimagine"); reimagineBtn.type = "button";
       reimagineBtn.title = "A photographic version of your design in the real room";
       style.insertBefore(redesign, before);
       // the design tools are the walk's other decorating buttons (not Furnish from photos or the scan switch)
       const tools = () => [...style.querySelectorAll(".w3-deco")].filter((b) => !/w3-(redesign|reimagine|furnish|scans)/.test(b.className));
       tools().forEach((b) => (b.hidden = true));
-      // Reimagine with Fal is always there, right under Redesign: it turns whatever the room looks like now
+      // Reimagine is always there, right under Redesign: it turns whatever the room looks like now
       // (your redesign, or the room as furnished) into a photographic picture
       const lastTool = tools().pop();
       style.insertBefore(reimagineBtn, lastTool ? lastTool.nextSibling : redesign.nextSibling);
@@ -165,17 +165,16 @@
 
       // ---- the result panel ----
       const sheet = el("div", "rm-sheet"); sheet.hidden = true;
-      sheet.setAttribute("role", "dialog"); sheet.setAttribute("aria-label", "Reimagined with Fal");
+      sheet.setAttribute("role", "dialog"); sheet.setAttribute("aria-label", "Reimagined");
       sheet.innerHTML = `
         <div class="rm-box">
-          <div class="rm-head"><h2 class="rm-title">Reimagined with Fal</h2><button type="button" class="rm-close">Back to designing</button></div>
+          <div class="rm-head"><h2 class="rm-title">Reimagined</h2><button type="button" class="rm-close">Back to designing</button></div>
           <div class="rm-grid">
             <figure class="rm-fig rm-photo"><img alt=""><figcaption>The room now (your photo)</figcaption></figure>
             <figure class="rm-fig rm-design"><img alt=""><figcaption>Your design in the 3D walk</figcaption></figure>
-            <figure class="rm-fig rm-result"><div class="rm-wait"><span class="rm-spin" aria-hidden="true"></span><p class="rm-status" aria-live="polite"></p></div><img alt="" hidden><p class="rm-note" hidden></p><figcaption>Reimagined with Fal: an AI impression, not a photo <span class="rm-made"></span></figcaption></figure>
+            <figure class="rm-fig rm-result"><div class="rm-wait"><span class="rm-spin" aria-hidden="true"></span><p class="rm-status" aria-live="polite"></p></div><img alt="" hidden><p class="rm-note" hidden></p><figcaption>Reimagined by Google Gemini: an AI impression, not a photo <span class="rm-made"></span></figcaption></figure>
           </div>
           <div class="rm-foot">
-            <label class="rm-notes-l">Anything to tell Fal? <input type="text" class="rm-notes" maxlength="300" placeholder="For example: evening light, linen curtains"></label>
             <button type="button" class="rm-again">Reimagine again</button>
             <a class="rm-save" target="_blank" rel="noopener" hidden>Open full size</a>
           </div>
@@ -191,7 +190,7 @@
       const send = async (req) => {
         if (T.isEmbed && T.embedRequest) return T.embedRequest("veduta:reimagine", req);
         const api = ((window.TOUR_CONFIG || {}).API_URL || "").replace(/\/+$/, "");
-        if (!api) throw new Error("Reimagine with Fal needs the Veduta backend. Open this flat from Veduta, or set API_URL in config.js to the backend’s address.");
+        if (!api) throw new Error("Reimagine needs the Veduta backend. Open this flat from Veduta, or set API_URL in config.js to the backend’s address.");
         const res = await fetch(api + "/reimagine", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(req) });
         if (!res.ok) throw new Error(await res.text().catch(() => "") || `Request failed (${res.status})`);
         return res.json();
@@ -201,19 +200,17 @@
         busy = true;
         $(".rm-again").disabled = true; $(".rm-save").hidden = true; $(".rm-note").hidden = true;
         $(".rm-result img").hidden = true; $(".rm-wait").hidden = false; $(".rm-spin").hidden = false;
-        $(".rm-status").textContent = `Fal is reimagining the ${last.roomName.toLowerCase()}. This usually takes 10 to 40 seconds…`;
+        $(".rm-status").textContent = `Reimagining the ${last.roomName.toLowerCase()}. This usually takes 5 to 15 seconds…`;
         try {
-          const res = await send(Object.assign({}, last, { notes: $(".rm-notes").value.trim() }));
-          if (!res || !res.imageUrl) throw new Error("Fal didn’t send an image back.");
+          const res = await send(Object.assign({}, last, { notes: "" }));
+          if (!res || !res.imageUrl) throw new Error("Google didn’t send an image back.");
           const img = $(".rm-result img");
           await new Promise((ok, bad) => { img.onload = ok; img.onerror = () => bad(new Error("The reimagined image couldn’t be loaded.")); img.src = res.imageUrl; });
           img.hidden = false; $(".rm-wait").hidden = true;
           // a note under the picture when it isn't really a reimagining
           const unchanged = !res.mock && (res.unchanged || await sameAsRender(last.render, res.imageUrl));
-          const note = res.mock ? "This is Veduta’s mock backend, which can’t call Fal, so this is your design as rendered. Connect the real backend with FAL_KEY set to reimagine it."
-            : unchanged ? (res.model === undefined
-              ? "Fal sent back your design unchanged. The backend running this site is older than the tour: redeploy it (modal deploy app.py) to get the fallback model that re-renders it properly."
-              : "Fal sent back almost exactly your design, with every model it tried. Try again, perhaps with something to tell it below, or set other models on the backend (FAL_REIMAGINE_MODEL, FAL_REIMAGINE_FALLBACK).") : "";
+          const note = res.mock ? "This is Veduta’s mock backend, which can’t call Google, so this is your design as rendered. Connect the real backend with GEMINI_API_KEY set to reimagine it."
+            : unchanged ? "Google sent back almost exactly your design. Press Reimagine again for another go." : "";
           $(".rm-made").textContent = res.model ? `Made with ${res.model}` : "";
           $(".rm-note").textContent = note; $(".rm-note").hidden = !note;
           const save = $(".rm-save"); save.href = res.imageUrl; save.hidden = false;
@@ -225,7 +222,6 @@
         }
       }
       $(".rm-again").addEventListener("click", generate);
-      $(".rm-notes").addEventListener("keydown", (e) => { if (e.key === "Enter") generate(); });
 
       // the room you're looking at (the middle of the view), which isn't always the one you're standing in:
       // from a hall, looking through a doorway into the living room, it's the living room
@@ -249,7 +245,7 @@
       reimagineBtn.addEventListener("click", async () => {
         if (busy) return;
         const room = roomInView() || roomAt();
-        if (!room) { reimagineBtn.textContent = "Stand in a room first"; setTimeout(() => (reimagineBtn.textContent = "Reimagine with Fal"), 2200); return; }
+        if (!room) { reimagineBtn.textContent = "Stand in a room first"; setTimeout(() => (reimagineBtn.textContent = "Reimagine"), 2200); return; }
         // tidy up first, so no selection outlines or panels end up in the picture
         closePanels();
         await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
@@ -259,10 +255,10 @@
         // the room's own photo; failing that, one from elsewhere in the home, as a guide to its style
         let photo = await firstPhoto(room), photoIsThisRoom = true, photoRoom = room;
         if (!photo) for (const other of P.rooms) { if (other === room) continue; photo = await firstPhoto(other); if (photo) { photoIsThisRoom = false; photoRoom = other; break; } }
-        // every piece you can see, its colour and where it is, so Fal keeps them all, in place, in colour
+        // every piece you can see, its colour and where it is, so the model keeps them all, in place, in colour
         const pieces = furnitureInView(P, camera, scene, furniture && furniture(), THREE);
         last = { render, photo, roomName: room.name, photoIsThisRoom, furniture: pieces };
-        $(".rm-title").textContent = `${room.name}, reimagined with Fal`;
+        $(".rm-title").textContent = `${room.name}, reimagined`;
         $(".rm-photo").hidden = !photo;
         $(".rm-photo figcaption").textContent = photoIsThisRoom ? "The room now (your photo)" : `Style guide: your photo of the ${photoRoom.name.toLowerCase()}`;
         $(".rm-grid").classList.toggle("no-photo", !photo);

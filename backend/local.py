@@ -59,12 +59,19 @@ def make_app():
     if os.environ.get("FAL_KEY"):
         try:
             from core.panorama import make_fal_panorama
-            from core.reimagine import make_fal_reimagine
 
-            panorama, reimagine = make_fal_panorama(), make_fal_reimagine()
-            logging.info("FAL_KEY is set: builds make a 360° view per room, and Reimagine with Fal works.")
+            panorama = make_fal_panorama()
+            logging.info("FAL_KEY is set: builds make a 360° view per room.")
         except ImportError:
-            logging.warning("FAL_KEY is set but fal-client isn't installed (pip install fal-client): no 360° views or reimagining.")
+            logging.warning("FAL_KEY is set but fal-client isn't installed (pip install fal-client): no 360° views.")
+    if os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"):
+        try:
+            from core.reimagine import make_google_reimagine
+
+            reimagine = make_google_reimagine()
+            logging.info("GEMINI_API_KEY is set: Reimagine uses Google's Gemini image model.")
+        except ImportError:
+            logging.warning("GEMINI_API_KEY is set but google-genai isn't installed (pip install google-genai): no reimagining.")
 
     def start_build(job_id: str, project_id: str) -> None:
         threading.Thread(target=run_build, args=(store, job_id, project_id, reconstruct, panorama), daemon=True).start()

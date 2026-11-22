@@ -211,7 +211,7 @@ def create_app(
     def reimagine(req: ReimagineRequest, request: Request) -> dict:
         """For the walk-through's interior designer: the redesigned room, made photographic in its real setting."""
         if reimagine_fn is None:
-            raise HTTPException(501, "Reimagining isn't set up on this server (it needs FAL_KEY).")
+            raise HTTPException(501, "Reimagining isn't set up on this server (it needs GEMINI_API_KEY).")
         import base64
         import binascii
 
@@ -243,7 +243,7 @@ def create_app(
             made_by = out.get("model") if isinstance(out, dict) else None
         except Exception:
             log.exception("Reimagine failed")
-            raise HTTPException(502, "Fal couldn't reimagine the room just now. Please try again.")
+            raise HTTPException(502, "Google couldn't reimagine the room just now. Please try again.")
         rid = uuid.uuid4().hex[:16]
         path = store.root / "reimagined" / f"{rid}.jpg"
         path.parent.mkdir(parents=True, exist_ok=True)

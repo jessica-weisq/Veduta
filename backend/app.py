@@ -103,10 +103,10 @@ def api():
     import os
 
     reimagine = None
-    if os.environ.get("FAL_KEY"):
-        from core.reimagine import make_fal_reimagine
+    if os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"):
+        from core.reimagine import make_google_reimagine
 
-        reimagine = make_fal_reimagine()
+        reimagine = make_google_reimagine()   # Reimagine: Google's Gemini image model
     from core.depth_fal import make_depth_fn
 
     # 3D photos: MoGe-2 on fal when FAL_KEY is set, falling back to Depth Anything on this CPU

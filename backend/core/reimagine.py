@@ -1,13 +1,13 @@
-"""Reimagine a redesigned room with fal: the walk-through's 3D render of the new design, made photographic in
-the room's real setting.
+"""Reimagine a redesigned room: the walk-through's 3D render of the new design, made photographic in the
+room's real setting. Uses Google's Gemini image model directly (GEMINI_API_KEY); see make_google_reimagine.
+The older fal version (make_fal_reimagine) is kept below but no longer wired in.
 
-Two pictures go to an image-editing model that takes several images (default fal-ai/nano-banana/edit, about
-$0.04 an image): the room's original photo, for the real room (walls, windows, the view outside, floor,
+Check Google works with your key:  GEMINI_API_KEY=... python -m core.reimagine design.jpg photo.jpg "Bedroom"
+Use another Google image model with GEMINI_IMAGE_MODEL (and GEMINI_IMAGE_FALLBACK for the second try).
+
+Two pictures go to the image model: the room's original photo, for the real room (walls, windows, the view outside, floor,
 light), and a render of the visitor's design from the 3D walk, for what's in it and where (furniture,
 layout, colours, wall finish). The result is an AI impression, and the walk-through labels it so.
-
-Check it works with your key:  FAL_KEY=... python -m core.reimagine design.jpg photo.jpg "Bedroom"
-Use another fal model with FAL_REIMAGINE_MODEL (it must accept image_urls and a prompt).
 """
 
 from __future__ import annotations
@@ -201,16 +201,80 @@ def make_fal_reimagine(model: str | None = None, timeout: float = 240) -> Callab
     return run
 
 
+# ---- Google (Gemini image generation, "Nano Banana") ----
+DEFAULT_GOOGLE_MODEL = "gemini-2.5-flash-image"          # fast, about 5-15 s an image
+DEFAULT_GOOGLE_FALLBACK = "gemini-3-pro-image-preview"   # slower, stronger; tried if the first sends the design back
+
+
+def google_key() -> str | None:
+    return os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+
+
+def first_inline_image(response) -> bytes | None:
+    """The first picture in a Gemini response (its parts can mix text and images)."""
+    for cand in getattr(response, "candidates", None) or []:
+        content = getattr(cand, "content", None)
+        for part in getattr(content, "parts", None) or []:
+            blob = getattr(part, "inline_data", None)
+            if blob is not None and getattr(blob, "data", None):
+                return blob.data
+    return None
+
+
+def make_google_reimagine(model: str | None = None, timeout_s: float = 120) -> Callable[..., dict]:
+    """Returns run(render, photo, room_name, notes, photo_is_this_room, furniture) -> {"image", "unchanged", "model"}.
+
+    Both pictures go straight to Gemini in one request (no uploads), mock-up first, real photo second.
+    """
+    from google import genai
+    from google.genai import types
+
+    client = genai.Client(  # reads GEMINI_API_KEY (or GOOGLE_API_KEY)
+        http_options=types.HttpOptions(timeout=int(timeout_s * 1000), retry_options=types.HttpRetryOptions(attempts=1)),
+    )
+    first = model or os.environ.get("GEMINI_IMAGE_MODEL", DEFAULT_GOOGLE_MODEL)
+    fallback = os.environ.get("GEMINI_IMAGE_FALLBACK", DEFAULT_GOOGLE_FALLBACK)
+    models = [first] + ([fallback] if fallback and fallback != first else [])
+
+    def run(render: bytes, photo: bytes | None, room_name: str, notes: str = "", photo_is_this_room: bool = True,
+            furniture: list[str] | None = None) -> dict:
+        images = [types.Part.from_bytes(data=render, mime_type="image/jpeg")]
+        if photo:
+            images.append(types.Part.from_bytes(data=photo, mime_type="image/jpeg"))
+
+        def call(m: str, arguments: dict) -> bytes:
+            response = client.models.generate_content(
+                model=m,
+                contents=[*images, types.Part.from_text(text=arguments["prompt"])],
+                config=types.GenerateContentConfig(response_modalities=["TEXT", "IMAGE"]),
+            )
+            data = first_inline_image(response)
+            if not data:
+                text = (getattr(response, "text", None) or "")[:200]
+                raise RuntimeError(f"{m} returned no image. {text}")
+            return to_jpeg(data)
+
+        prompts = {
+            "full": prompt_for(room_name, bool(photo), notes, photo_is_this_room, furniture=furniture),
+            "stronger": prompt_for(room_name, bool(photo), notes, photo_is_this_room, stronger=True, furniture=furniture),
+            "short": photo_prompt(room_name, furniture, notes),
+        }
+        # the urls aren't used by Google (the images go in the request itself); reimagine_with only passes them on
+        return reimagine_with(call, render, ["inline"], models, prompts)
+
+    return run
+
+
 if __name__ == "__main__":
-    if len(sys.argv) < 2 or not os.environ.get("FAL_KEY"):
-        sys.exit('Usage: FAL_KEY=... python -m core.reimagine design.jpg [photo.jpg] ["Room name"]')
+    if len(sys.argv) < 2 or not google_key():
+        sys.exit('Usage: GEMINI_API_KEY=... python -m core.reimagine design.jpg [photo.jpg] ["Room name"]')
     from pathlib import Path
 
     design = Path(sys.argv[1])
     photo = Path(sys.argv[2]) if len(sys.argv) > 2 and Path(sys.argv[2]).exists() else None
     name = sys.argv[3] if len(sys.argv) > 3 else (sys.argv[2] if len(sys.argv) > 2 and not photo else "room")
-    print(f"Asking {os.environ.get('FAL_REIMAGINE_MODEL', DEFAULT_MODEL)} to reimagine {design}{' in ' + str(photo) if photo else ''} …")
-    res = make_fal_reimagine()(to_jpeg(design.read_bytes()), to_jpeg(photo.read_bytes()) if photo else None, name)
+    print(f"Asking {os.environ.get('GEMINI_IMAGE_MODEL', DEFAULT_GOOGLE_MODEL)} to reimagine {design}{' in ' + str(photo) if photo else ''} …")
+    res = make_google_reimagine()(to_jpeg(design.read_bytes()), to_jpeg(photo.read_bytes()) if photo else None, name)
     out = design.with_name(f"{design.stem}-reimagined.jpg")
     out.write_bytes(res["image"])
-    print(f"Wrote {out}, made by {res['model']}" + (" (but it's almost the same as the design: try another model with FAL_REIMAGINE_MODEL)" if res["unchanged"] else ""))
+    print(f"Wrote {out}, made by {res['model']}" + (" (but it's almost the same as the design: try GEMINI_IMAGE_MODEL)" if res["unchanged"] else ""))

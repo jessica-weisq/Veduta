@@ -140,7 +140,7 @@ export interface ReimagineResponse {
   imageUrl: string
   /** true from the mock backend, which can't make one and sends the render back */
   mock?: boolean
-  /** true when Fal sent back something almost the same as the render, even after a second try */
+  /** true when the image model sent back something almost the same as the render, even after a second try */
   unchanged?: boolean
   /** which fal model made the picture */
   model?: string | null
